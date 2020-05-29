@@ -7,10 +7,12 @@ class Signature extends StatefulWidget {
 }
 
 class SignatureState extends State<Signature> {
-  var _penColor = Colors.black;
+  PenStatus _penStatus = PenStatus(color: Colors.black, type: PenType.Pen_Line, width: 3.0);
+
   var lstPainting = List<OncePainting>();
   var fresh = false;
-  var palleteVisible = false;
+  var _palleteVisible = false;
+  var _graphVisible = false;
 
   _buildPaint() {
     int count = lstPainting.length;
@@ -26,8 +28,7 @@ class SignatureState extends State<Signature> {
           Offset localPosition =
           referenceBox.globalToLocal(e.localPosition);
           painting.points.add(localPosition);
-          painting.status.color = _penColor;
-          painting.status.width = 5.0;
+          painting.status = _penStatus.clone();
 
           lstPainting.add(painting);
 
@@ -41,7 +42,17 @@ class SignatureState extends State<Signature> {
           referenceBox.globalToLocal(e.localPosition);
 
           if (lstPainting.isNotEmpty) {
-            lstPainting.last.points.add(localPosition);
+            switch (lstPainting.last.status.type) {
+              case PenType.Pen_Mouse:
+                lstPainting.last.points.add(localPosition);
+                break;
+              default: // 所有图形都是两点绘制
+                if (1 != lstPainting.last.points.length) {
+                  lstPainting.last.points.removeLast();
+                }
+                lstPainting.last.points.add(localPosition);
+                break;
+            }
           }
 
           fresh=true;
@@ -72,15 +83,24 @@ class SignatureState extends State<Signature> {
   _buildToolBar() {
     return <Widget>[
       new Padding(
-        padding: new EdgeInsets.only(left: 10, top: 500),
-        child: new Row(
+        padding: new EdgeInsets.only(left: 10, top: 10),
+        child: new Column(
           children: <Widget>[
             new RaisedButton(child: Text("clear"), onPressed: () {lstPainting.clear();}),
             new RaisedButton(
                 child: Text("pallete"),
                 onPressed: () {
                   setState(() {
-                    palleteVisible=!palleteVisible;
+                    _palleteVisible=!_palleteVisible;
+                  });
+                }
+            ),
+            new RaisedButton(child: Text("pen"), onPressed: () {_penStatus.type=PenType.Pen_Mouse;}),
+            new RaisedButton(
+                child: Text("graph"),
+                onPressed: () {
+                  setState(() {
+                    _graphVisible=!_graphVisible;
                   });
                 }
             ),
@@ -90,7 +110,7 @@ class SignatureState extends State<Signature> {
   }
 
   _buildPallete() {
-    if (palleteVisible) {
+    if (_palleteVisible) {
       return new Container(
         margin: EdgeInsets.only(left: 200, top: 300),
         width: mappingWidth(160),
@@ -119,8 +139,59 @@ class SignatureState extends State<Signature> {
               ),
               color: lstColor[index],
               onPressed: (){
-                _penColor=lstColor[index];
-                return false;
+                setState(() {
+                  _penStatus.color=lstColor[index];
+                  _palleteVisible = false;
+                });
+              },
+            );
+          },
+          ),
+        ),
+      );
+    } else {
+      return new Container();
+    }
+  }
+
+  _buildGraph() {
+    if (_graphVisible) {
+      return new Container(
+        margin: EdgeInsets.only(left: 200, top: 300),
+        width: mappingWidth(160),
+        height: mappingHeight(160),
+        decoration: new BoxDecoration(
+          color: Color(0xFFFF9F13),
+          borderRadius: BorderRadius.all(Radius.circular(15)),
+        ),
+
+        child: GridView(
+          scrollDirection: Axis.vertical,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            mainAxisSpacing: 5,
+            crossAxisSpacing: 5,
+          ),
+          padding: EdgeInsets.all(15),
+          children: List.generate(
+            9, (index) {
+            List lstGraph = [PenType.Pen_Rectangle, PenType.Pen_Circle, PenType.Pen_Triangle,
+              PenType.Pen_Parallelogram, PenType.Pen_Rhombus, PenType.Pen_RegularHexagon,
+              PenType.Pen_Coordinate, PenType.Pen_Line, PenType.Pen_DottedLine];
+            List lstIconPath = ['assets/graph/rectangle.png', 'assets/graph/circle.png', 'assets/graph/triangle.png',
+              'assets/graph/parallelogram.png', 'assets/graph/rhombus.png', 'assets/graph/regularHexagon.png',
+              'assets/graph/coordinate.png', 'assets/graph/line.png', 'assets/graph/dottedLine.png'];
+
+            return new IconButton(
+              padding: EdgeInsets.all(0),
+              highlightColor: Colors.amber,
+              icon: ImageIcon(AssetImage(lstIconPath[index])),
+              iconSize: 40.0,
+              onPressed: (){
+                setState(() {
+                  _penStatus.type = lstGraph[index];
+                  _graphVisible=false;
+                });
               },
             );
           },
@@ -138,6 +209,7 @@ class SignatureState extends State<Signature> {
           children: <Widget>[
             _buildPaint(),
             _buildPallete(),
+            _buildGraph(),
             new Stack(
                 children: _buildToolBar()
             ),
